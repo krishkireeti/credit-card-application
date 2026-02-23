@@ -1,16 +1,37 @@
-# React + Vite
+# Credit Card Application – Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React frontend for the Credit Card Application. Built with **React 19**, **Vite 7**, **React Router**, **Material-UI (MUI) 7**, and **Axios**.
 
-Currently, two official plugins are available:
+## Quick Start
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+```bash
+npm install
+npm run dev
+```
 
-## React Compiler
+Open the URL shown in the terminal (e.g. `http://localhost:5173`). Ensure the [backend](https://github.com/your-repo/credit-card-application/tree/main/credit-card-application-backend) is running on `http://localhost:5000` (see root [README](../README.md) for backend setup).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Scripts
 
-## Expanding the ESLint configuration
+| Command | Description |
+|--------|-------------|
+| `npm run dev` | Start dev server (Vite) |
+| `npm run build` | Production build |
+| `npm run preview` | Preview production build |
+| `npm run lint` | Run ESLint |
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Main Routes
+
+- **/** – Home (Apply / Login)
+- **/applicant** – Apply for credit card form
+- **/approver** – Admin dashboard (list, score, approve/reject)
+- **/status** – Check application status by ID
+- **/login** – Login page
+
+## API Base URL
+
+The app uses `http://localhost:5000` by default (see `src/api/api.js`). Change `baseURL` there if your backend runs elsewhere.
+
+## Full Documentation
+
+See the [root README](../README.md) for full project structure, API reference, and setup for both frontend and backend.
