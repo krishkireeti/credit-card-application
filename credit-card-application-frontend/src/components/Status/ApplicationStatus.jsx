@@ -13,7 +13,7 @@ import {
     CircularProgress
 } from '@mui/material';
 import { Search } from '@mui/icons-material';
-import axios from 'axios';
+import api from '../../api/api';
 
 const ApplicationStatus = () => {
     const [searchId, setSearchId] = useState('');
@@ -30,13 +30,12 @@ const ApplicationStatus = () => {
         setStatusData(null);
 
         try {
-            const response = await axios.get(`http://localhost:5000/api/applications/${searchId}`);
+            const response = await api.get(`/api/applicant/${searchId.trim()}`);
             setStatusData(response.data);
         } catch (err) {
-            console.error("Search error", err);
             setError(err.response?.status === 404
                 ? "Application ID not found. Please check and try again."
-                : "An error occurred while fetching status.");
+                : err.response?.data?.message || "An error occurred while fetching status.");
         } finally {
             setLoading(false);
         }
@@ -44,12 +43,10 @@ const ApplicationStatus = () => {
 
     const getStatusChip = (status) => {
         switch (status) {
-            case 'SUBMITTED': return <Chip label="Submitted" color="default" />;
-            case 'SCORED': return <Chip label="Under Review" color="info" />;
-            case 'APPROVED': return <Chip label="Approved" color="success" />;
-            case 'REJECTED': return <Chip label="Rejected" color="error" />;
-            case 'DISPATCHED': return <Chip label="Dispatched" color="primary" />;
-            default: return <Chip label={status} />;
+            case 'Pending': return <Chip label="Under Review" color="info" />;
+            case 'Approved': return <Chip label="Approved" color="success" />;
+            case 'Rejected': return <Chip label="Rejected" color="error" />;
+            default: return <Chip label={status || 'Unknown'} />;
         }
     };
 
@@ -99,7 +96,7 @@ const ApplicationStatus = () => {
                             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 2 }}>
                                 <Typography color="text.secondary">Applicant Name:</Typography>
                                 <Typography fontWeight="bold">
-                                    {statusData.firstName} {statusData.lastName}
+                                    {statusData.fullName}
                                 </Typography>
 
                                 <Typography color="text.secondary">Current Status:</Typography>
@@ -109,10 +106,9 @@ const ApplicationStatus = () => {
 
                                 <Typography color="text.secondary">Message:</Typography>
                                 <Typography>
-                                    {statusData.status === 'APPROVED' && "Your application has been approved!"}
-                                    {statusData.status === 'REJECTED' && "We regret to inform you that your application was not successful."}
-                                    {statusData.status === 'DISPATCHED' && "Your card has been dispatched and will arrive shortly."}
-                                    {(statusData.status === 'SUBMITTED' || statusData.status === 'SCORED') && "Your application is currently being reviewed."}
+                                    {statusData.status === 'Approved' && "Your application has been approved!"}
+                                    {statusData.status === 'Rejected' && "We regret to inform you that your application was not successful."}
+                                    {statusData.status === 'Pending' && "Your application is currently being reviewed."}
                                 </Typography>
                             </Box>
                         </CardContent>

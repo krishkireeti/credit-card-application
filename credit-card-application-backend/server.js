@@ -18,15 +18,28 @@ app.get('/api/debug', async (req, res) => {
     try {
         const connectionState = mongoose.connection.readyState;
         const states = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
+        const isConnected = connectionState === 1;
 
-        const apps = await Application.find();
+        let documentsFound = 0;
+        let sampleData = [];
+        let collectionName = '';
+        let databaseName = null;
+
+        if (isConnected) {
+            const db = mongoose.connection.db;
+            databaseName = db ? (db.databaseName || db.name) : null;
+            collectionName = Application.collection.name;
+            const apps = await Application.find();
+            documentsFound = apps.length;
+            sampleData = apps.slice(0, 2);
+        }
 
         res.json({
             connectionStatus: states[connectionState],
-            databaseName: mongoose.connection.db.name,
-            collectionName: Application.collection.name,
-            documentsFound: apps.length,
-            sampleData: apps.slice(0, 2)
+            databaseName,
+            collectionName: collectionName || null,
+            documentsFound,
+            sampleData
         });
     } catch (err) {
         res.status(500).json({
@@ -41,12 +54,27 @@ app.post('/api/applicant', async (req, res) => {
     try {
         const { fullName, age, income, pan } = req.body;
 
+        if (!fullName || typeof fullName !== 'string' || !fullName.trim()) {
+            return res.status(400).json({ message: 'Full name is required.' });
+        }
+        const ageNum = Number(age);
+        if (age === undefined || age === null || age === '' || Number.isNaN(ageNum)) {
+            return res.status(400).json({ message: 'Valid age is required.' });
+        }
+        const incomeNum = Number(income);
+        if (income === undefined || income === null || income === '' || Number.isNaN(incomeNum)) {
+            return res.status(400).json({ message: 'Valid income is required.' });
+        }
+        if (!pan || typeof pan !== 'string' || !pan.trim()) {
+            return res.status(400).json({ message: 'PAN is required.' });
+        }
+
         // Business Logic: Check age on backend too
-        if (age < 18) {
+        if (ageNum < 18) {
             return res.status(400).json({ message: "Age must be 18 or older." });
         }
 
-        const newApp = new Application({ fullName, age, income, pan });
+        const newApp = new Application({ fullName: fullName.trim(), age: ageNum, income: incomeNum, pan: pan.trim() });
         await newApp.save();
 
         res.status(201).json({
@@ -56,7 +84,31 @@ app.post('/api/applicant', async (req, res) => {
         });
     } catch (err) {
         console.error('Error saving application:', err.message);
-        res.status(500).json({ message: err.message || "PAN already exists or Server Error" });
+        let message = 'Server error. Please try again.';
+        if (err.code === 11000) {
+            message = 'An application with this PAN already exists.';
+        } else if (err.message) {
+            message = err.message;
+        }
+        res.status(500).json({ message });
+    }
+});
+
+// Get single application by ID (for status check by applicant)
+app.get('/api/applicant/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: 'Invalid application ID' });
+        }
+        const app = await Application.findById(id).select('fullName status creditScore appliedAt');
+        if (!app) {
+            return res.status(404).json({ message: 'Application not found' });
+        }
+        res.json(app);
+    } catch (err) {
+        console.error('Error fetching application:', err.message);
+        res.status(500).json({ message: err.message });
     }
 });
 
@@ -75,16 +127,35 @@ app.get('/api/approver', async (req, res) => {
 app.put('/api/approver/:id', async (req, res) => {
     try {
         const { status, score } = req.body;
-        const updateData = {};
+        const id = req.params.id;
 
-        if (status) updateData.status = status;
-        if (score) updateData.creditScore = score;
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: 'Invalid application ID' });
+        }
+
+        const updateData = {};
+        if (status !== undefined && status !== null && status !== '') updateData.status = status;
+        if (score !== undefined && score !== null && score !== '') updateData.creditScore = score;
+
+        if (Object.keys(updateData).length === 0) {
+            return res.status(400).json({ message: 'Provide at least status or score to update' });
+        }
+
+        const validStatuses = ['Pending', 'Approved', 'Rejected'];
+        if (updateData.status && !validStatuses.includes(updateData.status)) {
+            return res.status(400).json({ message: `Status must be one of: ${validStatuses.join(', ')}` });
+        }
 
         const updatedApp = await Application.findByIdAndUpdate(
-            req.params.id,
+            id,
             updateData,
             { new: true }
         );
+
+        if (!updatedApp) {
+            return res.status(404).json({ message: 'Application not found' });
+        }
+
         res.json(updatedApp);
     } catch (err) {
         console.error('Error updating application:', err.message);

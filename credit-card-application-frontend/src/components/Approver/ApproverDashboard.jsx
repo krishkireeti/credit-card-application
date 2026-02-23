@@ -1,20 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Container, Typography, Paper, Table, TableBody, TableCell,
-    TableContainer, TableHead, TableRow, Button, Chip, Stack, Box
+    TableContainer, TableHead, TableRow, Button, Chip, Stack
 } from '@mui/material';
-import SpeedIcon from '@mui/icons-material/Speed';
 import StatusModal from '../Status/StatusModal';
-// Import your reusable modal
+import api from '../../api/api';
+
+const mapAppFromApi = (app) => ({
+    id: app._id,
+    name: app.fullName,
+    age: app.age,
+    income: app.income,
+    pan: app.pan,
+    score: app.creditScore ?? null,
+    status: app.status || 'Pending'
+});
 
 const ApproverDashboard = () => {
-    // 1. Applications State
-    const [applications, setApplications] = useState([
-        { id: 'APP101', name: 'Rahul Sharma', age: 25, income: 400000, pan: '**********', score: null, status: 'Pending' },
-        { id: 'APP102', name: 'Sita Verma', age: 30, income: 1200000, pan: '**********', score: null, status: 'Pending' },
-    ]);
+    const [applications, setApplications] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-    // 2. Modal State
     const [modalConfig, setModalConfig] = useState({
         open: false,
         type: 'success',
@@ -22,35 +28,53 @@ const ApproverDashboard = () => {
         message: ''
     });
 
-    const handleCheckScore = (id) => {
-        setApplications(prev => prev.map(app => {
-            if (app.id === id) {
-                // Mock score logic
-                const mockScore = app.income > 500000 ? 820 : 710;
-                return { ...app, score: mockScore };
-            }
-            return app;
-        }));
+    const fetchApplications = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await api.get('/api/approver');
+            setApplications((response.data || []).map(mapAppFromApi));
+        } catch (err) {
+            setError(err.response?.data?.message || err.message || 'Failed to load applications');
+        } finally {
+            setLoading(false);
+        }
     };
 
-    // 3. Handle Decision and Trigger Modal
-    const handleDecision = (id, name, decision) => {
+    useEffect(() => {
+        fetchApplications();
+    }, []);
+
+    const handleCheckScore = async (id) => {
+        const app = applications.find(a => a.id === id);
+        if (!app) return;
+        const mockScore = app.income > 500000 ? 820 : 710;
+        try {
+            const response = await api.put(`/api/approver/${id}`, { score: mockScore });
+            setApplications(prev => prev.map(a => a.id === id ? { ...a, score: response.data.creditScore ?? mockScore } : a));
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to update score');
+        }
+    };
+
+    const handleDecision = async (id, name, decision) => {
         const isApproved = decision === 'Approved';
-
-        // Update the table status
-        setApplications(prev => prev.map(app =>
-            app.id === id ? { ...app, status: decision } : app
-        ));
-
-        // Open the success/failure modal
-        setModalConfig({
-            open: true,
-            type: isApproved ? 'success' : 'error',
-            title: isApproved ? 'Application Approved' : 'Application Rejected',
-            message: isApproved
-                ? `Credit card for ${name} has been approved and moved to the dispatch queue.`
-                : `Application for ${name} has been rejected based on credit policy.`
-        });
+        try {
+            await api.put(`/api/approver/${id}`, { status: decision });
+            setApplications(prev => prev.map(app =>
+                app.id === id ? { ...app, status: decision } : app
+            ));
+            setModalConfig({
+                open: true,
+                type: isApproved ? 'success' : 'error',
+                title: isApproved ? 'Application Approved' : 'Application Rejected',
+                message: isApproved
+                    ? `Credit card for ${name} has been approved and moved to the dispatch queue.`
+                    : `Application for ${name} has been rejected based on credit policy.`
+            });
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to update application');
+        }
     };
 
     const closeModal = () => setModalConfig({ ...modalConfig, open: false });
@@ -91,9 +115,9 @@ const ApproverDashboard = () => {
                                     <TableRow key={row.id}>
                                         <TableCell>
                                             <Typography variant="subtitle2">{row.name}</Typography>
-                                            <Typography variant="caption">{row.pan}</Typography>
+                                            <Typography variant="caption">{row.pan ? `****${String(row.pan).slice(-4)}` : '—'}</Typography>
                                         </TableCell>
-                                        <TableCell>₹{row.income.toLocaleString()}</TableCell>
+                                        <TableCell>₹{Number(row.income || 0).toLocaleString()}</TableCell>
                                         <TableCell>
                                             {row.score ? (
                                                 <Chip label={row.score} color={row.score >= 800 ? "success" : "warning"} size="small" />
