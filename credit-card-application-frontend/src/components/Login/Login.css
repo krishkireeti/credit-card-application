@@ -1,0 +1,12 @@
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    /* background-color: #f5f5f5; Removed to use global theme default */
+    /* Light grey background */
+}
+
+.login-paper {
+    /* Additional custom styles if needed beyond MUI sx prop */
+}
